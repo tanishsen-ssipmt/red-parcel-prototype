@@ -73,3 +73,9 @@ That’s the link you can share or put in your pitch deck.
 ---
 
 Built as a clickable prototype for validation & investor / stakeholder demos.
+
+Copyright © 2026 Tanish Sen. All rights reserved.
+
+This repository contains original work authored by Tanish Sen. No permission is granted to copy, reproduce, distribute, modify, or commercially use this work without prior written permission, except where permitted by applicable law.
+
+The underlying ideas, concepts, and business models are not claimed as exclusively protected by copyright.

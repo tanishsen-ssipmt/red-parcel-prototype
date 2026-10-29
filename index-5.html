@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Red Parcel – Bus Parcel Delivery Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', system-ui, sans-serif; }
+    body { background: #f8fafc; }
+    .phone-frame {
+      max-width: 390px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: #fff;
+      box-shadow: 0 0 40px rgba(0,0,0,0.12);
+      position: relative;
+      overflow: hidden;
+    }
+    .screen { display: none; min-height: 100vh; flex-direction: column; }
+    .screen.active { display: flex; }
+    .red-primary { background: #E30613; }
+    .text-red-primary { color: #E30613; }
+    .border-red-primary { border-color: #E30613; }
+    .btn-red {
+      background: #E30613;
+      color: white;
+      font-weight: 600;
+      border-radius: 12px;
+      transition: all 0.2s;
+    }
+    .btn-red:active { transform: scale(0.97); opacity: 0.9; }
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      border: 1px solid #f1f5f9;
+    }
+    .map-container {
+      background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #ecfdf5 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    .bus-marker {
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      background: #E30613;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 16px;
+      box-shadow: 0 4px 12px rgba(227,6,19,0.4);
+      animation: pulse 2s infinite;
+      z-index: 10;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    .route-line {
+      position: absolute;
+      height: 3px;
+      background: #E30613;
+      opacity: 0.6;
+      border-radius: 2px;
+    }
+    .stop-dot {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: white;
+      border: 3px solid #E30613;
+      border-radius: 50%;
+      z-index: 5;
+    }
+    .bottom-nav {
+      position: sticky;
+      bottom: 0;
+      background: white;
+      border-top: 1px solid #e2e8f0;
+      padding: 8px 0 env(safe-area-inset-bottom);
+      z-index: 50;
+    }
+    .nav-item { flex: 1; text-align: center; padding: 6px 0; color: #94a3b8; font-size: 11px; }
+    .nav-item.active { color: #E30613; }
+    .nav-item i { display: block; font-size: 20px; margin-bottom: 2px; }
+    .status-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      max-width: 90%;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; }
+    input, select, textarea {
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      width: 100%;
+      font-size: 15px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #E30613;
+    }
+    .progress-bar {
+      height: 4px;
+      background: #fee2e2;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #E30613;
+      border-radius: 2px;
+      transition: width 0.5s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="phone-frame">
+    <!-- TOAST -->
+    <div id="toast" class="toast"></div>
+
+    <!-- ==================== SPLASH / ROLE SELECT ==================== -->
+    <div id="screen-role" class="screen active">
+      <div class="flex-1 flex flex-col items-center justify-center px-6 py-10">
+        <img src="red-parcel-logo.png" alt="Red Parcel" class="w-28 h-28 object-contain mb-4" />
+        <h1 class="text-2xl font-bold text-slate-800 mb-1">Red Parcel</h1>
+        <p class="text-slate-500 text-sm text-center mb-8">Bus-powered parcel delivery with live tracking</p>
+
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 w-full">Continue as</p>
+
+        <div class="w-full space-y-3">
+          <button onclick="go('receiver-home')" class="w-full card p-4 flex items-center gap-4 active:scale-[0.98] transition">
+            <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-primary text-xl">
+              <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-slate-800">Receiver</div>
+              <div class="text-xs text-slate-500">Track live bus location</div>
+            </div>
+            <i class="fas fa-chevron-right text-slate-300 ml-auto"></i>
+          </button>
+
+          <button onclick="go('sender-home')" class="w-full card p-4 flex items-center gap-4 active:scale-[0.98] transition">
+            <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-primary text-xl">
+              <i class="fas fa-box"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-slate-800">Sender</div>
+              <div class="text-xs text-slate-500">Book a parcel on bus</div>
+            </div>
+            <i class="fas fa-chevron-right text-slate-300 ml-auto"></i>
+          </button>
+
+          <button onclick="go('driver-home')" class="w-full card p-4 flex items-center gap-4 active:scale-[0.98] transition">
+            <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-primary text-xl">
+              <i class="fas fa-bus"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-slate-800">Bus Driver</div>
+              <div class="text-xs text-slate-500">Manage parcels & trip</div>
+            </div>
+            <i class="fas fa-chevron-right text-slate-300 ml-auto"></i>
+          </button>
+
+          <button onclick="go('owner-home')" class="w-full card p-4 flex items-center gap-4 active:scale-[0.98] transition">
+            <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-primary text-xl">
+              <i class="fas fa-building"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-slate-800">Bus Owner</div>
+              <div class="text-xs text-slate-500">Subscription & fleet</div>
+            </div>
+            <i class="fas fa-chevron-right text-slate-300 ml-auto"></i>
+          </button>
+        </div>
+      </div>
+      <div class="px-6 pb-8 text-center text-xs text-slate-400">
+        Prototype • Interactive demo
+      </div>
+    </div>
+
+    <!-- ==================== RECEIVER HOME ==================== -->
+    <div id="screen-receiver-home" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-6">
+        <div class="flex items-center justify-between mb-4">
+          <button onclick="go('role')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Receiver</span>
+          <button class="text-white/80"><i class="fas fa-bell"></i></button>
+        </div>
+        <h2 class="text-xl font-bold">Hi, Rahul 👋</h2>
+        <p class="text-white/80 text-sm mt-1">Your parcel is on the way</p>
+      </div>
+
+      <div class="flex-1 px-4 -mt-3 pb-24">
+        <!-- Active Parcel Card -->
+        <div class="card p-4 mb-4">
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <div class="text-xs text-slate-400 font-medium">PARCEL #RP-2847</div>
+              <div class="font-semibold text-slate-800 mt-0.5">Documents Package</div>
+            </div>
+            <span class="status-badge bg-amber-50 text-amber-600">In Transit</span>
+          </div>
+          <div class="flex items-center gap-2 text-sm text-slate-600 mb-3">
+            <i class="fas fa-bus text-red-primary"></i>
+            <span>Indore → Bhopal • Bus MH-12-AB-4521</span>
+          </div>
+          <div class="progress-bar mb-2">
+            <div class="progress-fill" style="width: 62%"></div>
+          </div>
+          <div class="flex justify-between text-xs text-slate-500">
+            <span>Departed Indore</span>
+            <span>ETA 42 min</span>
+          </div>
+          <button onclick="go('receiver-track')" class="btn-red w-full mt-4 py-3 text-sm">
+            <i class="fas fa-location-arrow mr-2"></i> View Live Location
+          </button>
+        </div>
+
+        <!-- Recent -->
+        <h3 class="font-semibold text-slate-700 text-sm mb-2">Recent Parcels</h3>
+        <div class="card p-3 mb-2 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+            <i class="fas fa-check"></i>
+          </div>
+          <div class="flex-1">
+            <div class="font-medium text-sm text-slate-800">Medicine Box</div>
+            <div class="text-xs text-slate-500">Delivered • 2 days ago</div>
+          </div>
+        </div>
+        <div class="card p-3 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+            <i class="fas fa-check"></i>
+          </div>
+          <div class="flex-1">
+            <div class="font-medium text-sm text-slate-800">Clothes Parcel</div>
+            <div class="text-xs text-slate-500">Delivered • 1 week ago</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav flex">
+        <div class="nav-item active" onclick="go('receiver-home')"><i class="fas fa-home"></i>Home</div>
+        <div class="nav-item" onclick="go('receiver-track')"><i class="fas fa-map"></i>Track</div>
+        <div class="nav-item" onclick="showToast('Notifications coming soon')"><i class="fas fa-bell"></i>Alerts</div>
+        <div class="nav-item" onclick="showToast('Profile coming soon')"><i class="fas fa-user"></i>Profile</div>
+      </div>
+    </div>
+
+    <!-- ==================== RECEIVER LIVE TRACK ==================== -->
+    <div id="screen-receiver-track" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-4">
+        <div class="flex items-center justify-between">
+          <button onclick="go('receiver-home')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Live Tracking</span>
+          <button onclick="showToast('Share link copied!')" class="text-white/80"><i class="fas fa-share-alt"></i></button>
+        </div>
+      </div>
+
+      <!-- MAP -->
+      <div class="map-container h-64 relative">
+        <!-- Fake route -->
+        <div class="route-line" style="top: 40%; left: 10%; width: 80%; transform: rotate(-8deg);"></div>
+        <div class="stop-dot" style="top: 38%; left: 8%;"></div>
+        <div class="stop-dot" style="top: 42%; left: 48%;"></div>
+        <div class="stop-dot" style="top: 48%; left: 85%;"></div>
+        <!-- Bus marker -->
+        <div id="bus-marker" class="bus-marker" style="top: 35%; left: 42%;">
+          <i class="fas fa-bus"></i>
+        </div>
+        <div class="absolute bottom-3 left-3 bg-white/90 backdrop-blur rounded-lg px-3 py-1.5 text-xs font-medium shadow">
+          <i class="fas fa-circle text-green-500 text-[8px] mr-1"></i> Live • Updated just now
+        </div>
+      </div>
+
+      <div class="flex-1 px-4 py-4 pb-24 overflow-y-auto">
+        <div class="card p-4 mb-4">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <div class="text-xs text-slate-400">PARCEL #RP-2847</div>
+              <div class="font-bold text-slate-800">Documents Package</div>
+            </div>
+            <span class="status-badge bg-blue-50 text-blue-600">On Route</span>
+          </div>
+
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+              <i class="fas fa-user"></i>
+            </div>
+            <div>
+              <div class="font-medium text-sm">Driver: Suresh Yadav</div>
+              <div class="text-xs text-slate-500">Bus MH-12-AB-4521 • +91 98XXX XXX21</div>
+            </div>
+            <a href="tel:+919800000000" class="ml-auto w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
+              <i class="fas fa-phone"></i>
+            </a>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-center">
+            <div class="bg-slate-50 rounded-xl p-3">
+              <div class="text-xs text-slate-500">ETA to your stop</div>
+              <div class="text-lg font-bold text-red-primary" id="eta-text">42 min</div>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3">
+              <div class="text-xs text-slate-500">Distance left</div>
+              <div class="text-lg font-bold text-slate-800" id="dist-text">28 km</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="card p-4">
+          <h4 class="font-semibold text-sm mb-3">Journey</h4>
+          <div class="space-y-4">
+            <div class="flex gap-3">
+              <div class="flex flex-col items-center">
+                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                <div class="w-0.5 flex-1 bg-green-200"></div>
+              </div>
+              <div class="pb-3">
+                <div class="text-sm font-medium">Picked up at Indore Bus Stand</div>
+                <div class="text-xs text-slate-500">Today, 2:15 PM</div>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <div class="flex flex-col items-center">
+                <div class="w-3 h-3 rounded-full bg-red-primary animate-pulse"></div>
+                <div class="w-0.5 flex-1 bg-slate-200"></div>
+              </div>
+              <div class="pb-3">
+                <div class="text-sm font-medium text-red-primary">Currently near Dewas</div>
+                <div class="text-xs text-slate-500">Live</div>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <div class="flex flex-col items-center">
+                <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+              </div>
+              <div>
+                <div class="text-sm font-medium text-slate-500">Your stop: Bhopal ISBT</div>
+                <div class="text-xs text-slate-400">Expected ~3:45 PM</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav flex">
+        <div class="nav-item" onclick="go('receiver-home')"><i class="fas fa-home"></i>Home</div>
+        <div class="nav-item active" onclick="go('receiver-track')"><i class="fas fa-map"></i>Track</div>
+        <div class="nav-item" onclick="showToast('Notifications coming soon')"><i class="fas fa-bell"></i>Alerts</div>
+        <div class="nav-item" onclick="showToast('Profile coming soon')"><i class="fas fa-user"></i>Profile</div>
+      </div>
+    </div>
+
+    <!-- ==================== SENDER HOME ==================== -->
+    <div id="screen-sender-home" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-6">
+        <div class="flex items-center justify-between mb-4">
+          <button onclick="go('role')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Sender</span>
+          <button class="text-white/80"><i class="fas fa-bell"></i></button>
+        </div>
+        <h2 class="text-xl font-bold">Send a Parcel</h2>
+        <p class="text-white/80 text-sm mt-1">Via trusted bus network</p>
+      </div>
+
+      <div class="flex-1 px-4 -mt-3 pb-24">
+        <div class="card p-5 mb-4">
+          <div class="space-y-4">
+            <div>
+              <label class="text-xs font-medium text-slate-500 mb-1 block">From (Pickup Stop)</label>
+              <select id="from-stop">
+                <option>Indore Bus Stand</option>
+                <option>Dewas</option>
+                <option>Ujjain</option>
+                <option>Bhopal ISBT</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-500 mb-1 block">To (Delivery Stop)</label>
+              <select id="to-stop">
+                <option>Bhopal ISBT</option>
+                <option>Indore Bus Stand</option>
+                <option>Dewas</option>
+                <option>Ujjain</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-500 mb-1 block">Parcel Type</label>
+              <select>
+                <option>Documents / Papers</option>
+                <option>Clothes / Soft goods</option>
+                <option>Electronics (small)</option>
+                <option>Medicine / Fragile</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-500 mb-1 block">Approx Weight</label>
+              <select>
+                <option>Up to 2 kg – ₹40</option>
+                <option>2–5 kg – ₹70</option>
+                <option>5–10 kg – ₹120</option>
+                <option>10–20 kg – ₹200</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-500 mb-1 block">Receiver Mobile</label>
+              <input type="tel" placeholder="+91 98XXX XXXXX" value="+91 98765 43210" />
+            </div>
+          </div>
+          <button onclick="go('sender-confirm')" class="btn-red w-full mt-5 py-3.5 text-sm">
+            Find Available Buses
+          </button>
+        </div>
+
+        <h3 class="font-semibold text-slate-700 text-sm mb-2">My Recent Bookings</h3>
+        <div class="card p-3 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+            <i class="fas fa-truck"></i>
+          </div>
+          <div class="flex-1">
+            <div class="font-medium text-sm">RP-2847 • Documents</div>
+            <div class="text-xs text-slate-500">Indore → Bhopal • In Transit</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav flex">
+        <div class="nav-item active" onclick="go('sender-home')"><i class="fas fa-home"></i>Home</div>
+        <div class="nav-item" onclick="showToast('History coming soon')"><i class="fas fa-history"></i>History</div>
+        <div class="nav-item" onclick="showToast('Help coming soon')"><i class="fas fa-question-circle"></i>Help</div>
+        <div class="nav-item" onclick="showToast('Profile coming soon')"><i class="fas fa-user"></i>Profile</div>
+      </div>
+    </div>
+
+    <!-- ==================== SENDER CONFIRM ==================== -->
+    <div id="screen-sender-confirm" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-5">
+        <div class="flex items-center gap-3">
+          <button onclick="go('sender-home')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Select Bus</span>
+        </div>
+      </div>
+
+      <div class="flex-1 px-4 py-4 pb-8 overflow-y-auto">
+        <p class="text-sm text-slate-500 mb-3">3 buses available on this route today</p>
+
+        <div class="space-y-3">
+          <div class="card p-4 border-2 border-red-primary relative">
+            <div class="absolute -top-2 left-4 bg-red-primary text-white text-[10px] font-bold px-2 py-0.5 rounded">BEST</div>
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <div class="font-semibold text-slate-800">Sharma Travels</div>
+                <div class="text-xs text-slate-500">MH-12-AB-4521 • AC Seater</div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-red-primary">₹70</div>
+                <div class="text-xs text-slate-400">Driver fee</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-slate-600 mb-3">
+              <span><i class="fas fa-clock mr-1"></i> Dep 2:30 PM</span>
+              <span><i class="fas fa-map-marker-alt mr-1"></i> 4h 15m</span>
+              <span class="text-green-600"><i class="fas fa-star mr-1"></i>4.8</span>
+            </div>
+            <button onclick="bookParcel()" class="btn-red w-full py-2.5 text-sm">Book this Bus</button>
+          </div>
+
+          <div class="card p-4">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <div class="font-semibold text-slate-800">Royal Express</div>
+                <div class="text-xs text-slate-500">MP-09-CD-8832 • Non-AC</div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-slate-800">₹55</div>
+                <div class="text-xs text-slate-400">Driver fee</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-slate-600 mb-3">
+              <span><i class="fas fa-clock mr-1"></i> Dep 3:15 PM</span>
+              <span><i class="fas fa-map-marker-alt mr-1"></i> 4h 40m</span>
+              <span class="text-green-600"><i class="fas fa-star mr-1"></i>4.5</span>
+            </div>
+            <button onclick="bookParcel()" class="w-full py-2.5 text-sm border border-slate-200 rounded-xl font-semibold text-slate-700">Book this Bus</button>
+          </div>
+
+          <div class="card p-4">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <div class="font-semibold text-slate-800">Indore Deluxe</div>
+                <div class="text-xs text-slate-500">MP-04-EF-1190 • Sleeper</div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-slate-800">₹90</div>
+                <div class="text-xs text-slate-400">Driver fee</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-slate-600 mb-3">
+              <span><i class="fas fa-clock mr-1"></i> Dep 5:00 PM</span>
+              <span><i class="fas fa-map-marker-alt mr-1"></i> 3h 50m</span>
+              <span class="text-green-600"><i class="fas fa-star mr-1"></i>4.7</span>
+            </div>
+            <button onclick="bookParcel()" class="w-full py-2.5 text-sm border border-slate-200 rounded-xl font-semibold text-slate-700">Book this Bus</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== DRIVER HOME ==================== -->
+    <div id="screen-driver-home" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-6">
+        <div class="flex items-center justify-between mb-4">
+          <button onclick="go('role')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Driver</span>
+          <div class="flex items-center gap-1 text-xs bg-white/20 px-2 py-1 rounded-full">
+            <span class="w-2 h-2 bg-green-400 rounded-full"></span> Online
+          </div>
+        </div>
+        <h2 class="text-xl font-bold">Suresh Yadav</h2>
+        <p class="text-white/80 text-sm">Bus MH-12-AB-4521 • Sharma Travels</p>
+      </div>
+
+      <div class="flex-1 px-4 -mt-3 pb-24">
+        <!-- Today's Stats -->
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <div class="card p-3 text-center">
+            <div class="text-lg font-bold text-slate-800">3</div>
+            <div class="text-[10px] text-slate-500">Parcels</div>
+          </div>
+          <div class="card p-3 text-center">
+            <div class="text-lg font-bold text-green-600">₹210</div>
+            <div class="text-[10px] text-slate-500">Today</div>
+          </div>
+          <div class="card p-3 text-center">
+            <div class="text-lg font-bold text-slate-800">1</div>
+            <div class="text-[10px] text-slate-500">Active</div>
+          </div>
+        </div>
+
+        <h3 class="font-semibold text-slate-700 text-sm mb-2">Active Trip</h3>
+        <div class="card p-4 mb-4">
+          <div class="flex justify-between mb-2">
+            <span class="font-semibold">Indore → Bhopal</span>
+            <span class="status-badge bg-green-50 text-green-600">Live</span>
+          </div>
+          <div class="text-xs text-slate-500 mb-3">Started 2:30 PM • Next stop: Dewas</div>
+          <button onclick="go('driver-trip')" class="btn-red w-full py-2.5 text-sm">
+            Open Trip Dashboard
+          </button>
+        </div>
+
+        <h3 class="font-semibold text-slate-700 text-sm mb-2">Parcels to Collect / Deliver</h3>
+        <div class="space-y-2">
+          <div class="card p-3 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 text-sm font-bold">1</div>
+            <div class="flex-1">
+              <div class="font-medium text-sm">RP-2847 • Documents</div>
+              <div class="text-xs text-slate-500">Deliver at Bhopal ISBT • ₹70</div>
+            </div>
+            <span class="text-xs font-medium text-amber-600">Onboard</span>
+          </div>
+          <div class="card p-3 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-sm font-bold">2</div>
+            <div class="flex-1">
+              <div class="font-medium text-sm">RP-2851 • Clothes</div>
+              <div class="text-xs text-slate-500">Pickup at Dewas • ₹55</div>
+            </div>
+            <span class="text-xs font-medium text-slate-400">Pending</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav flex">
+        <div class="nav-item active" onclick="go('driver-home')"><i class="fas fa-home"></i>Home</div>
+        <div class="nav-item" onclick="go('driver-trip')"><i class="fas fa-route"></i>Trip</div>
+        <div class="nav-item" onclick="showToast('Earnings coming soon')"><i class="fas fa-rupee-sign"></i>Earnings</div>
+        <div class="nav-item" onclick="showToast('Profile coming soon')"><i class="fas fa-user"></i>Profile</div>
+      </div>
+    </div>
+
+    <!-- ==================== DRIVER TRIP ==================== -->
+    <div id="screen-driver-trip" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-4">
+        <div class="flex items-center justify-between">
+          <button onclick="go('driver-home')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Trip Live</span>
+          <button onclick="showToast('Location sharing ON')" class="text-white/80"><i class="fas fa-broadcast-tower"></i></button>
+        </div>
+      </div>
+
+      <div class="map-container h-48 relative">
+        <div class="route-line" style="top: 45%; left: 10%; width: 80%; transform: rotate(-5deg);"></div>
+        <div class="bus-marker" style="top: 38%; left: 48%;"><i class="fas fa-bus"></i></div>
+        <div class="absolute bottom-3 left-3 right-3 flex gap-2">
+          <div class="flex-1 bg-white/90 backdrop-blur rounded-lg px-3 py-2 text-xs text-center">
+            <div class="font-bold text-slate-800">Live Location Shared</div>
+            <div class="text-slate-500">Receivers can see you</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 px-4 py-4 pb-24 overflow-y-auto">
+        <div class="card p-4 mb-3">
+          <div class="flex justify-between items-center mb-3">
+            <span class="font-semibold">Current Status</span>
+            <span class="status-badge bg-green-50 text-green-600">Sharing Location</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div class="bg-slate-50 rounded-lg p-2 text-center">
+              <div class="text-xs text-slate-500">Next Stop</div>
+              <div class="font-semibold">Dewas</div>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-2 text-center">
+              <div class="text-xs text-slate-500">ETA</div>
+              <div class="font-semibold">18 min</div>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="font-semibold text-sm mb-2">Parcel Actions</h3>
+        <div class="card p-3 mb-2">
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="font-medium text-sm">RP-2847</div>
+              <div class="text-xs text-slate-500">Deliver at Bhopal</div>
+            </div>
+            <button onclick="showToast('Marked as delivered')" class="text-xs bg-green-50 text-green-700 font-semibold px-3 py-1.5 rounded-lg">Mark Delivered</button>
+          </div>
+        </div>
+        <div class="card p-3">
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="font-medium text-sm">RP-2851</div>
+              <div class="text-xs text-slate-500">Pickup at Dewas</div>
+            </div>
+            <button onclick="showToast('Pickup confirmed')" class="text-xs bg-blue-50 text-blue-700 font-semibold px-3 py-1.5 rounded-lg">Confirm Pickup</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav flex">
+        <div class="nav-item" onclick="go('driver-home')"><i class="fas fa-home"></i>Home</div>
+        <div class="nav-item active" onclick="go('driver-trip')"><i class="fas fa-route"></i>Trip</div>
+        <div class="nav-item" onclick="showToast('Earnings coming soon')"><i class="fas fa-rupee-sign"></i>Earnings</div>
+        <div class="nav-item" onclick="showToast('Profile coming soon')"><i class="fas fa-user"></i>Profile</div>
+      </div>
+    </div>
+
+    <!-- ==================== BUS OWNER ==================== -->
+    <div id="screen-owner-home" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-6">
+        <div class="flex items-center justify-between mb-4">
+          <button onclick="go('role')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Bus Owner</span>
+          <button class="text-white/80"><i class="fas fa-cog"></i></button>
+        </div>
+        <h2 class="text-xl font-bold">Sharma Travels</h2>
+        <p class="text-white/80 text-sm">Fleet: 4 buses • Active subscription</p>
+      </div>
+
+      <div class="flex-1 px-4 -mt-3 pb-24">
+        <!-- Subscription Status -->
+        <div class="card p-4 mb-4 border-l-4 border-green-500">
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="text-xs text-green-600 font-semibold uppercase">Active Plan</div>
+              <div class="font-bold text-slate-800 mt-0.5">Pro Plan</div>
+              <div class="text-xs text-slate-500 mt-1">Renews on 15 Nov 2026</div>
+            </div>
+            <div class="text-right">
+              <div class="font-bold text-slate-800">₹1,999</div>
+              <div class="text-xs text-slate-400">/month</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="card p-4">
+            <div class="text-2xl font-bold text-slate-800">47</div>
+            <div class="text-xs text-slate-500">Parcels this month</div>
+          </div>
+          <div class="card p-4">
+            <div class="text-2xl font-bold text-green-600">₹8,240</div>
+            <div class="text-xs text-slate-500">Driver earnings</div>
+          </div>
+        </div>
+
+        <h3 class="font-semibold text-slate-700 text-sm mb-2">Your Buses</h3>
+        <div class="space-y-2 mb-4">
+          <div class="card p-3 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+              <i class="fas fa-bus"></i>
+            </div>
+            <div class="flex-1">
+              <div class="font-medium text-sm">MH-12-AB-4521</div>
+              <div class="text-xs text-slate-500">On trip • Indore-Bhopal</div>
+            </div>
+            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+          </div>
+          <div class="card p-3 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+              <i class="fas fa-bus"></i>
+            </div>
+            <div class="flex-1">
+              <div class="font-medium text-sm">MP-09-CD-8832</div>
+              <div class="text-xs text-slate-500">Idle • Garage</div>
+            </div>
+            <span class="w-2 h-2 bg-slate-300 rounded-full"></span>
+          </div>
+        </div>
+
+        <button onclick="go('owner-plans')" class="w-full py-3 border-2 border-red-primary text-red-primary font-semibold rounded-xl text-sm">
+          Manage Subscription
+        </button>
+      </div>
+
+      <div class="bottom-nav flex">
+        <div class="nav-item active" onclick="go('owner-home')"><i class="fas fa-home"></i>Home</div>
+        <div class="nav-item" onclick="go('owner-plans')"><i class="fas fa-crown"></i>Plans</div>
+        <div class="nav-item" onclick="showToast('Reports coming soon')"><i class="fas fa-chart-bar"></i>Reports</div>
+        <div class="nav-item" onclick="showToast('Settings coming soon')"><i class="fas fa-cog"></i>Settings</div>
+      </div>
+    </div>
+
+    <!-- ==================== OWNER PLANS (Subscription) ==================== -->
+    <div id="screen-owner-plans" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-5">
+        <div class="flex items-center gap-3">
+          <button onclick="go('owner-home')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Subscription Plans</span>
+        </div>
+      </div>
+
+      <div class="flex-1 px-4 py-4 pb-8 overflow-y-auto">
+        <p class="text-sm text-slate-500 mb-4">Choose a plan for your fleet. Drivers get live tracking tools & parcel matching.</p>
+
+        <!-- Starter -->
+        <div class="card p-5 mb-3">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <div class="font-bold text-lg text-slate-800">Starter</div>
+              <div class="text-xs text-slate-500">Up to 2 buses</div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-slate-800">₹799</div>
+              <div class="text-xs text-slate-400">/month</div>
+            </div>
+          </div>
+          <ul class="text-sm text-slate-600 space-y-1.5 mb-4">
+            <li><i class="fas fa-check text-green-500 mr-2"></i>Live location for receivers</li>
+            <li><i class="fas fa-check text-green-500 mr-2"></i>Up to 50 parcels / month</li>
+            <li><i class="fas fa-check text-green-500 mr-2"></i>Basic driver app</li>
+          </ul>
+          <button onclick="showToast('Plan selected (demo)')" class="w-full py-2.5 border border-slate-200 rounded-xl font-semibold text-sm">Select</button>
+        </div>
+
+        <!-- Pro (current) -->
+        <div class="card p-5 mb-3 border-2 border-red-primary relative">
+          <div class="absolute -top-2.5 left-4 bg-red-primary text-white text-[10px] font-bold px-2.5 py-0.5 rounded">CURRENT</div>
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <div class="font-bold text-lg text-slate-800">Pro</div>
+              <div class="text-xs text-slate-500">Up to 8 buses</div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-red-primary">₹1,999</div>
+              <div class="text-xs text-slate-400">/month</div>
+            </div>
+          </div>
+          <ul class="text-sm text-slate-600 space-y-1.5 mb-4">
+            <li><i class="fas fa-check text-green-500 mr-2"></i>Everything in Starter</li>
+            <li><i class="fas fa-check text-green-500 mr-2"></i>Unlimited parcels</li>
+            <li><i class="fas fa-check text-green-500 mr-2"></i>Priority matching</li>
+            <li><i class="fas fa-check text-green-500 mr-2"></i>Earnings dashboard</li>
+            <li><i class="fas fa-check text-green-500 mr-2"></i>SMS + WhatsApp alerts</li>
+          </ul>
+          <button class="btn-red w-full py-2.5 text-sm opacity-70 cursor-default">Active Plan</button>
+        </div>
+
+        <!-- Business -->
+        <div class="card p-5">
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <div class="font-bold text-lg text-slate-800">Business</div>
+              <div class="text-xs text-slate-500">Unlimited buses</div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-slate-800">₹4,999</div>
+              <div class="text-xs text-slate-400">/month</div>
+            </div>
+          </div>
+          <ul class="text-sm text-slate-600 space-y-1.5 mb-4">
+            <li><i class="fas fa-check text-green-500 mr-2"></i>Everything in Pro</li>
+            <li><i class="fas fa-check text-green-500 mr-2"></i>API access</li>
+            <li><i class="fas fa-check text-green-500 mr-2"></i>Dedicated support</li>
+            <li><i class="fas fa-check text-green-500 mr-2"></i>Custom branding</li>
+          </ul>
+          <button onclick="showToast('Upgrade request sent (demo)')" class="w-full py-2.5 border border-slate-200 rounded-xl font-semibold text-sm">Upgrade</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== BOOKING SUCCESS ==================== -->
+    <div id="screen-success" class="screen">
+      <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
+        <div class="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-3xl mb-5">
+          <i class="fas fa-check"></i>
+        </div>
+        <h2 class="text-xl font-bold text-slate-800 mb-2">Parcel Booked!</h2>
+        <p class="text-slate-500 text-sm mb-1">Booking ID: <strong>RP-2849</strong></p>
+        <p class="text-slate-500 text-sm mb-6">Receiver will get live tracking link via SMS</p>
+
+        <div class="card p-4 w-full text-left mb-6">
+          <div class="text-sm space-y-2">
+            <div class="flex justify-between"><span class="text-slate-500">Route</span><span class="font-medium">Indore → Bhopal</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Bus</span><span class="font-medium">MH-12-AB-4521</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Driver fee</span><span class="font-medium text-red-primary">₹70</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Status</span><span class="font-medium text-amber-600">Awaiting pickup</span></div>
+          </div>
+        </div>
+
+        <button onclick="go('sender-home')" class="btn-red w-full py-3.5 text-sm mb-3">Back to Home</button>
+        <button onclick="go('role')" class="text-sm text-slate-500">Switch Role</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function go(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const el = document.getElementById('screen-' + screenId);
+      if (el) {
+        el.classList.add('active');
+        window.scrollTo(0, 0);
+      }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    function bookParcel() {
+      showToast('Booking confirmed!');
+      setTimeout(() => go('success'), 600);
+    }
+
+    // Simple live ETA simulation on track screen
+    let eta = 42;
+    setInterval(() => {
+      if (document.getElementById('screen-receiver-track').classList.contains('active')) {
+        if (eta > 5) {
+          eta -= 1;
+          document.getElementById('eta-text').textContent = eta + ' min';
+          document.getElementById('dist-text').textContent = Math.max(3, Math.round(eta * 0.67)) + ' km';
+        }
+      }
+    }, 8000);
+
+    // Move bus marker slightly
+    let busLeft = 42;
+    setInterval(() => {
+      if (document.getElementById('screen-receiver-track').classList.contains('active')) {
+        busLeft = Math.min(78, busLeft + 0.8);
+        const m = document.getElementById('bus-marker');
+        if (m) m.style.left = busLeft + '%';
+      }
+    }, 4000);
+  </script>
+</body>
+</html>

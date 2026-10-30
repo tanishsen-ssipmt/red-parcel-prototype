@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Red Parcel – Enhanced Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', system-ui, sans-serif; box-sizing: border-box; }
+    body { background: #f1f5f9; margin: 0; }
+    .phone-frame {
+      max-width: 390px; margin: 0 auto; min-height: 100vh;
+      background: #fff; box-shadow: 0 0 40px rgba(0,0,0,0.12); position: relative; overflow-x: hidden;
+    }
+    .screen { display: none; min-height: 100vh; flex-direction: column; }
+    .screen.active { display: flex; }
+    .red-primary { background: #E30613; }
+    .text-red { color: #E30613; }
+    .btn-red {
+      background: #E30613; color: white; font-weight: 600; border-radius: 12px;
+      transition: all 0.2s; border: none; cursor: pointer;
+    }
+    .btn-red:active { transform: scale(0.97); opacity: 0.9; }
+    .card {
+      background: white; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      border: 1px solid #f1f5f9;
+    }
+    .map-container {
+      background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #ecfdf5 100%);
+      position: relative; overflow: hidden; height: 220px;
+    }
+    .bus-marker {
+      position: absolute; width: 40px; height: 40px; background: #E30613;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 16px; box-shadow: 0 4px 14px rgba(227,6,19,0.45);
+      z-index: 10; transition: left 1.2s ease, top 1.2s ease;
+    }
+    .stop-dot {
+      position: absolute; width: 12px; height: 12px; background: white;
+      border: 3px solid #E30613; border-radius: 50%; z-index: 5;
+    }
+    .toast {
+      position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: white; padding: 12px 18px; border-radius: 12px;
+      font-size: 13px; z-index: 200; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; max-width: 90%; text-align: center;
+    }
+    .toast.show { opacity: 1; }
+    input, select, textarea {
+      border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px 14px;
+      width: 100%; font-size: 15px; outline: none;
+    }
+    input:focus, select:focus { border-color: #E30613; }
+    .status-step { display: flex; align-items: flex-start; gap: 12px; }
+    .status-dot {
+      width: 18px; height: 18px; border-radius: 50%; border: 2px solid #cbd5e1;
+      background: white; flex-shrink: 0; margin-top: 2px;
+    }
+    .status-dot.done { background: #E30613; border-color: #E30613; }
+    .status-dot.current { border-color: #E30613; box-shadow: 0 0 0 4px rgba(227,6,19,0.2); }
+    .status-line { width: 2px; height: 28px; background: #e2e8f0; margin-left: 8px; }
+    .status-line.done { background: #E30613; }
+    .otp-box {
+      width: 48px; height: 52px; text-align: center; font-size: 22px; font-weight: 700;
+      border: 2px solid #e2e8f0; border-radius: 12px;
+    }
+    .otp-box:focus { border-color: #E30613; }
+  </style>
+</head>
+<body>
+  <div class="phone-frame">
+    <div id="toast" class="toast"></div>
+
+    <!-- ========== ROLE SELECT ========== -->
+    <div id="screen-role" class="screen active">
+      <div class="flex-1 flex flex-col items-center justify-center px-6 py-10">
+        <img src="red-parcel-logo.png" alt="Red Parcel" class="w-28 h-28 object-contain mb-4" onerror="this.style.display='none'" />
+        <h1 class="text-2xl font-bold text-slate-800 mb-1">Red Parcel</h1>
+        <p class="text-slate-500 text-sm text-center mb-2">Bus-powered parcel delivery</p>
+        <span class="text-xs bg-red-50 text-red-600 px-3 py-1 rounded-full font-medium mb-8">Enhanced Prototype v2</span>
+
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 w-full">Continue as</p>
+        <div class="w-full space-y-3">
+          <button onclick="go('receiver-home')" class="w-full card p-4 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red text-xl"><i class="fas fa-map-marker-alt"></i></div>
+            <div class="text-left flex-1">
+              <div class="font-semibold text-slate-800">Receiver</div>
+              <div class="text-xs text-slate-500">Live tracking + OTP delivery</div>
+            </div>
+            <i class="fas fa-chevron-right text-slate-300"></i>
+          </button>
+          <button onclick="go('sender-book')" class="w-full card p-4 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red text-xl"><i class="fas fa-box"></i></div>
+            <div class="text-left flex-1">
+              <div class="font-semibold text-slate-800">Sender</div>
+              <div class="text-xs text-slate-500">Book parcel → get Tracking ID</div>
+            </div>
+            <i class="fas fa-chevron-right text-slate-300"></i>
+          </button>
+          <button onclick="go('driver-home')" class="w-full card p-4 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red text-xl"><i class="fas fa-bus"></i></div>
+            <div class="text-left flex-1">
+              <div class="font-semibold text-slate-800">Bus Driver</div>
+              <div class="text-xs text-slate-500">Manage trip + enter OTP</div>
+            </div>
+            <i class="fas fa-chevron-right text-slate-300"></i>
+          </button>
+          <button onclick="go('owner-home')" class="w-full card p-4 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red text-xl"><i class="fas fa-building"></i></div>
+            <div class="text-left flex-1">
+              <div class="font-semibold text-slate-800">Bus Owner</div>
+              <div class="text-xs text-slate-500">Subscription & fleet</div>
+            </div>
+            <i class="fas fa-chevron-right text-slate-300"></i>
+          </button>
+        </div>
+      </div>
+      <div class="px-6 pb-8 text-center text-xs text-slate-400">Tracking ID • Status flow • OTP verification</div>
+    </div>
+
+    <!-- ========== SENDER: BOOK ========== -->
+    <div id="screen-sender-book" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-5">
+        <div class="flex items-center gap-3 mb-3">
+          <button onclick="go('role')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Book Parcel</span>
+        </div>
+        <p class="text-white/80 text-sm">Sender → choose route & bus</p>
+      </div>
+      <div class="flex-1 px-4 py-5 space-y-4 overflow-y-auto pb-28">
+        <div class="card p-4 space-y-3">
+          <div>
+            <label class="text-xs font-semibold text-slate-500">From (Pickup Stop)</label>
+            <select id="book-from" class="mt-1">
+              <option>Indore – Sarwate Bus Stand</option>
+              <option>Dewas Bypass</option>
+              <option>Sehore</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500">To (Drop Stop)</label>
+            <select id="book-to" class="mt-1">
+              <option>Bhopal – ISBT</option>
+              <option>Bhopal – Habibganj</option>
+              <option>Sehore</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Receiver Name</label>
+            <input id="book-receiver" type="text" placeholder="Rahul Sharma" class="mt-1" value="Rahul Sharma" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Receiver Phone</label>
+            <input id="book-phone" type="tel" placeholder="9876543210" class="mt-1" value="9876543210" />
+          </div>
+        </div>
+
+        <div class="card p-4">
+          <p class="text-xs font-semibold text-slate-500 mb-3">Available Buses Today</p>
+          <div class="space-y-2">
+            <label class="flex items-center gap-3 p-3 rounded-xl border-2 border-red-200 bg-red-50 cursor-pointer">
+              <input type="radio" name="bus" value="MP09AB1234" checked class="accent-red-600" />
+              <div class="flex-1">
+                <div class="font-semibold text-slate-800 text-sm">Indore Express • MP09 AB 1234</div>
+                <div class="text-xs text-slate-500">Dep 09:30 • Arr ~13:15 • ₹80</div>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer">
+              <input type="radio" name="bus" value="MP09CD5678" class="accent-red-600" />
+              <div class="flex-1">
+                <div class="font-semibold text-slate-800 text-sm">Malwa Travels • MP09 CD 5678</div>
+                <div class="text-xs text-slate-500">Dep 11:00 • Arr ~14:45 • ₹65</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="fixed bottom-0 left-0 right-0 max-w-[390px] mx-auto p-4 bg-white border-t">
+        <button onclick="createBooking()" class="btn-red w-full py-3.5 text-base">Confirm Booking • ₹80</button>
+      </div>
+    </div>
+
+    <!-- ========== SENDER: CONFIRMATION ========== -->
+    <div id="screen-sender-confirm" class="screen">
+      <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
+        <div class="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-3xl mb-5">
+          <i class="fas fa-check"></i>
+        </div>
+        <h2 class="text-xl font-bold text-slate-800 mb-2">Booking Confirmed</h2>
+        <p class="text-slate-500 text-sm mb-6">Share this Tracking ID with the receiver</p>
+        <div class="card p-5 w-full mb-6">
+          <p class="text-xs text-slate-500 mb-1">Tracking ID</p>
+          <p id="confirm-tracking-id" class="text-2xl font-bold text-red tracking-wider">RP-10245</p>
+          <p class="text-xs text-slate-400 mt-3">Status: <span class="text-green-600 font-medium">Booking Confirmed</span></p>
+        </div>
+        <p class="text-xs text-slate-400 mb-4">Receiver can track live once the driver starts the trip</p>
+        <button onclick="go('receiver-home')" class="btn-red w-full py-3 mb-3">Open as Receiver</button>
+        <button onclick="go('role')" class="text-slate-500 text-sm">Back to roles</button>
+      </div>
+    </div>
+
+    <!-- ========== RECEIVER HOME ========== -->
+    <div id="screen-receiver-home" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-6">
+        <div class="flex items-center justify-between mb-4">
+          <button onclick="go('role')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Receiver</span>
+          <button class="text-white/80"><i class="fas fa-bell"></i></button>
+        </div>
+        <h2 class="text-xl font-bold">Hi, Rahul 👋</h2>
+        <p class="text-white/80 text-sm mt-1">Track your incoming parcel</p>
+      </div>
+      <div class="flex-1 px-4 -mt-3 pb-8">
+        <div class="card p-4 mb-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-slate-500">ACTIVE PARCEL</span>
+            <span id="recv-status-badge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">In Transit</span>
+          </div>
+          <p class="font-bold text-slate-800 text-lg" id="recv-tracking">RP-10245</p>
+          <p class="text-sm text-slate-500 mt-1">Indore → Bhopal • Bus MP09 AB 1234</p>
+          <button onclick="go('receiver-track')" class="btn-red w-full py-3 mt-4 text-sm">
+            <i class="fas fa-map-marked-alt mr-2"></i> View Live Location
+          </button>
+        </div>
+
+        <!-- Status Timeline -->
+        <div class="card p-4">
+          <p class="text-xs font-semibold text-slate-500 mb-4">STATUS TIMELINE</p>
+          <div id="status-timeline" class="space-y-0"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== RECEIVER LIVE TRACK ========== -->
+    <div id="screen-receiver-track" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-4">
+        <div class="flex items-center justify-between mb-2">
+          <button onclick="go('receiver-home')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Live Tracking</span>
+          <span class="text-xs bg-white/20 px-2 py-1 rounded-full" id="track-id-label">RP-10245</span>
+        </div>
+      </div>
+      <div class="map-container relative">
+        <div class="stop-dot" style="left:12%; top:70%;"></div>
+        <div class="stop-dot" style="left:48%; top:40%;"></div>
+        <div class="stop-dot" style="left:82%; top:25%;"></div>
+        <div class="absolute text-[10px] text-slate-600" style="left:8%; top:78%;">Indore</div>
+        <div class="absolute text-[10px] text-slate-600" style="left:44%; top:48%;">Sehore</div>
+        <div class="absolute text-[10px] text-slate-600" style="left:76%; top:32%;">Bhopal</div>
+        <div id="bus-marker" class="bus-marker" style="left:28%; top:58%;">
+          <i class="fas fa-bus"></i>
+        </div>
+      </div>
+      <div class="px-4 py-4 space-y-3">
+        <div class="card p-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-slate-500">Estimated Arrival</p>
+            <p class="text-xl font-bold text-slate-800" id="eta-text">42 min</p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-slate-500">Distance left</p>
+            <p class="font-semibold text-slate-700" id="dist-text">68 km</p>
+          </div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red"><i class="fas fa-bus"></i></div>
+            <div>
+              <p class="font-semibold text-sm">Indore Express • MP09 AB 1234</p>
+              <p class="text-xs text-slate-500">Driver is sharing live location</p>
+            </div>
+          </div>
+        </div>
+        <p class="text-center text-xs text-slate-400">You don’t need to call the driver. Location updates automatically.</p>
+      </div>
+    </div>
+
+    <!-- ========== DRIVER HOME ========== -->
+    <div id="screen-driver-home" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-5">
+        <div class="flex items-center justify-between mb-3">
+          <button onclick="go('role')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Driver Dashboard</span>
+          <span class="text-xs bg-white/20 px-2 py-1 rounded-full">Online</span>
+        </div>
+        <p class="text-white/90 text-sm">Today’s trip • Indore → Bhopal</p>
+      </div>
+      <div class="flex-1 px-4 py-4 space-y-3 pb-8">
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-slate-500">ACTIVE PARCELS</span>
+            <span class="text-xs font-bold text-red">1 parcel</span>
+          </div>
+          <div class="border border-slate-100 rounded-xl p-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="font-bold text-slate-800" id="drv-tracking">RP-10245</p>
+                <p class="text-xs text-slate-500 mt-0.5">Rahul Sharma • 98765 43210</p>
+                <p class="text-xs text-slate-500">Drop: Bhopal ISBT</p>
+              </div>
+              <span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">In Transit</span>
+            </div>
+            <div class="flex gap-2 mt-3">
+              <button onclick="go('driver-otp')" class="flex-1 btn-red py-2.5 text-sm">Enter OTP / Deliver</button>
+            </div>
+          </div>
+        </div>
+        <div class="card p-4">
+          <p class="text-xs font-semibold text-slate-500 mb-2">LOCATION SHARING</p>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-700">Share live GPS with receivers</span>
+            <button id="gps-toggle" onclick="toggleGPS()" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">ON</button>
+          </div>
+          <p class="text-xs text-slate-400 mt-2">In real app this uses phone GPS every 8–10 sec</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== DRIVER OTP ========== -->
+    <div id="screen-driver-otp" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-5">
+        <div class="flex items-center gap-3">
+          <button onclick="go('driver-home')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Delivery Verification</span>
+        </div>
+      </div>
+      <div class="flex-1 px-5 py-8 flex flex-col items-center">
+        <p class="text-slate-500 text-sm mb-1">Parcel</p>
+        <p class="text-xl font-bold text-slate-800 mb-6" id="otp-tracking">RP-10245</p>
+        <p class="text-sm text-slate-600 text-center mb-6">Ask the receiver for the 4-digit delivery OTP</p>
+        <div class="flex gap-3 mb-8" id="otp-inputs">
+          <input class="otp-box" maxlength="1" inputmode="numeric" oninput="moveOtp(this,0)" />
+          <input class="otp-box" maxlength="1" inputmode="numeric" oninput="moveOtp(this,1)" />
+          <input class="otp-box" maxlength="1" inputmode="numeric" oninput="moveOtp(this,2)" />
+          <input class="otp-box" maxlength="1" inputmode="numeric" oninput="moveOtp(this,3)" />
+        </div>
+        <p class="text-xs text-slate-400 mb-6">Demo OTP: <span class="font-mono font-bold text-slate-600">4821</span></p>
+        <button onclick="verifyOTP()" class="btn-red w-full py-3.5">Confirm Delivery</button>
+      </div>
+    </div>
+
+    <!-- ========== OWNER HOME ========== -->
+    <div id="screen-owner-home" class="screen">
+      <div class="red-primary text-white px-5 pt-10 pb-5">
+        <div class="flex items-center justify-between mb-3">
+          <button onclick="go('role')" class="text-white/80"><i class="fas fa-arrow-left"></i></button>
+          <span class="font-semibold">Bus Owner</span>
+          <span class="text-xs bg-white/20 px-2 py-1 rounded-full">Pro Plan</span>
+        </div>
+        <p class="text-white/90 text-sm">Malwa Roadlines</p>
+      </div>
+      <div class="flex-1 px-4 py-4 space-y-3 pb-8">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="card p-4 text-center">
+            <p class="text-2xl font-bold text-slate-800">4</p>
+            <p class="text-xs text-slate-500">Active Buses</p>
+          </div>
+          <div class="card p-4 text-center">
+            <p class="text-2xl font-bold text-slate-800">12</p>
+            <p class="text-xs text-slate-500">Parcels today</p>
+          </div>
+        </div>
+        <div class="card p-4">
+          <p class="text-xs font-semibold text-slate-500 mb-3">SUBSCRIPTION</p>
+          <div class="flex justify-between items-center">
+            <div>
+              <p class="font-semibold">Pro Plan</p>
+              <p class="text-xs text-slate-500">₹1,999 / month • 10 buses</p>
+            </div>
+            <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Active</span>
+          </div>
+        </div>
+        <div class="card p-4 space-y-3">
+          <p class="text-xs font-semibold text-slate-500">PLANS</p>
+          <div class="flex justify-between text-sm"><span>Starter</span><span class="font-medium">₹799</span></div>
+          <div class="flex justify-between text-sm text-red font-semibold"><span>Pro (current)</span><span>₹1,999</span></div>
+          <div class="flex justify-between text-sm"><span>Business</span><span class="font-medium">₹4,999</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ========== STATE ==========
+    let currentParcel = {
+      trackingId: 'RP-10245',
+      status: 'in_transit',
+      receiver: 'Rahul Sharma',
+      phone: '9876543210',
+      from: 'Indore – Sarwate',
+      to: 'Bhopal – ISBT',
+      bus: 'MP09 AB 1234',
+      fare: 80,
+      otp: '4821',
+      etaMins: 42,
+      distKm: 68
+    };
+
+    const STATUS_ORDER = [
+      { key: 'booking_confirmed', label: 'Booking Confirmed' },
+      { key: 'awaiting_pickup', label: 'Awaiting Pickup' },
+      { key: 'parcel_onboard', label: 'Parcel Onboard' },
+      { key: 'in_transit', label: 'In Transit' },
+      { key: 'arrived', label: 'Arrived at Destination' },
+      { key: 'delivered', label: 'Delivered' }
+    ];
+
+    // ========== NAV ==========
+    function go(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const el = document.getElementById('screen-' + screenId);
+      if (el) el.classList.add('active');
+      if (screenId === 'receiver-home') renderTimeline();
+      if (screenId === 'receiver-track') startBusAnimation();
+    }
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // ========== BOOKING ==========
+    function createBooking() {
+      const id = 'RP-' + (10000 + Math.floor(Math.random() * 90000));
+      currentParcel = {
+        trackingId: id,
+        status: 'booking_confirmed',
+        receiver: document.getElementById('book-receiver').value || 'Rahul Sharma',
+        phone: document.getElementById('book-phone').value || '9876543210',
+        from: document.getElementById('book-from').value,
+        to: document.getElementById('book-to').value,
+        bus: 'MP09 AB 1234',
+        fare: 80,
+        otp: String(1000 + Math.floor(Math.random() * 9000)),
+        etaMins: 42,
+        distKm: 68
+      };
+      // Persist
+      localStorage.setItem('rp_parcel', JSON.stringify(currentParcel));
+      document.getElementById('confirm-tracking-id').textContent = id;
+      document.getElementById('recv-tracking').textContent = id;
+      document.getElementById('drv-tracking').textContent = id;
+      document.getElementById('otp-tracking').textContent = id;
+      document.getElementById('track-id-label').textContent = id;
+      go('sender-confirm');
+      toast('Booking created • ' + id);
+    }
+
+    // ========== STATUS TIMELINE ==========
+    function renderTimeline() {
+      const container = document.getElementById('status-timeline');
+      const currentIdx = STATUS_ORDER.findIndex(s => s.key === currentParcel.status);
+      let html = '';
+      STATUS_ORDER.forEach((s, i) => {
+        const done = i < currentIdx;
+        const current = i === currentIdx;
+        html += `
+          <div class="status-step">
+            <div>
+              <div class="status-dot ${done ? 'done' : ''} ${current ? 'current' : ''}"></div>
+              ${i < STATUS_ORDER.length - 1 ? `<div class="status-line ${done ? 'done' : ''}"></div>` : ''}
+            </div>
+            <div class="pb-4">
+              <p class="text-sm font-medium ${current ? 'text-red' : done ? 'text-slate-700' : 'text-slate-400'}">${s.label}</p>
+              ${current ? '<p class="text-xs text-slate-400">Current status</p>' : ''}
+            </div>
+          </div>`;
+      });
+      container.innerHTML = html;
+
+      // Badge
+      const badge = document.getElementById('recv-status-badge');
+      const label = STATUS_ORDER[currentIdx]?.label || currentParcel.status;
+      badge.textContent = label;
+      badge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full ' +
+        (currentParcel.status === 'delivered' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700');
+    }
+
+    // ========== BUS ANIMATION ==========
+    let busTimer = null;
+    function startBusAnimation() {
+      const marker = document.getElementById('bus-marker');
+      let progress = 0.28;
+      if (busTimer) clearInterval(busTimer);
+      busTimer = setInterval(() => {
+        progress += 0.012;
+        if (progress > 0.82) progress = 0.28;
+        const left = 12 + progress * 70;
+        const top = 70 - progress * 48;
+        marker.style.left = left + '%';
+        marker.style.top = top + '%';
+        // Fake ETA decrease
+        currentParcel.etaMins = Math.max(5, Math.round(42 * (1 - (progress - 0.28) / 0.54)));
+        currentParcel.distKm = Math.max(8, Math.round(68 * (1 - (progress - 0.28) / 0.54)));
+        document.getElementById('eta-text').textContent = currentParcel.etaMins + ' min';
+        document.getElementById('dist-text').textContent = currentParcel.distKm + ' km';
+      }, 1200);
+    }
+
+    // ========== OTP ==========
+    function moveOtp(el, idx) {
+      if (el.value && idx < 3) {
+        document.querySelectorAll('.otp-box')[idx + 1].focus();
+      }
+    }
+
+    function verifyOTP() {
+      const boxes = document.querySelectorAll('.otp-box');
+      const entered = Array.from(boxes).map(b => b.value).join('');
+      if (entered === currentParcel.otp || entered === '4821') {
+        currentParcel.status = 'delivered';
+        localStorage.setItem('rp_parcel', JSON.stringify(currentParcel));
+        toast('Parcel delivered successfully!');
+        setTimeout(() => go('receiver-home'), 800);
+      } else {
+        toast('Incorrect OTP. Try 4821 for demo');
+      }
+    }
+
+    // ========== GPS TOGGLE (demo) ==========
+    function toggleGPS() {
+      const btn = document.getElementById('gps-toggle');
+      if (btn.textContent === 'ON') {
+        btn.textContent = 'OFF';
+        btn.className = 'px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600';
+        toast('Location sharing stopped');
+      } else {
+        btn.textContent = 'ON';
+        btn.className = 'px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 text-green-700';
+        toast('Live location sharing started');
+      }
+    }
+
+    // ========== INIT ==========
+    (function init() {
+      const saved = localStorage.getItem('rp_parcel');
+      if (saved) {
+        try {
+          currentParcel = JSON.parse(saved);
+          document.getElementById('recv-tracking').textContent = currentParcel.trackingId;
+          document.getElementById('drv-tracking').textContent = currentParcel.trackingId;
+          document.getElementById('otp-tracking').textContent = currentParcel.trackingId;
+          document.getElementById('track-id-label').textContent = currentParcel.trackingId;
+        } catch(e) {}
+      }
+    })();
+  </script>
+</body>
+</html>
